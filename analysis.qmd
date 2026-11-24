@@ -29,3 +29,80 @@ movies |>
     y = "Count"
   )
 ```
+
+```{r}
+movies_gap <- movies_clean |>
+  filter(tomatoMeter != 0, audienceScore != 0) |>
+  mutate(gap = tomatoMeter - audienceScore)
+
+movies_summary <- movies_gap |>
+  group_by(genre) |>
+  summarise(
+    mean_gap = mean(gap, na.rm = TRUE),
+    n = n(),
+    .groups = "drop"
+  ) |>
+  filter(n >= 100) |>
+  arrange(mean_gap)
+```
+
+```{r}
+movies_summary |>
+  ggplot(aes(x = reorder(genre, mean_gap), y = mean_gap)) +
+  geom_col() +
+  geom_hline(yintercept = 0) +
+  coord_flip() +
+  labs(
+    title = "Average Critic-Audience Score Gap by Genre",
+    subtitle = "Genres with at least 100 films",
+    x = "Genre",
+    y = "Mean gap (Tomatometer minus audience score)"
+  )
+```
+
+```{r}
+spiderman_titles <- c(
+  "Spider-Man",
+  "Spider-Man 2",
+  "Spider-Man 3",
+  "The Amazing Spider-Man",
+  "The Amazing Spider-Man 2",
+  "Spider-Man: Homecoming",
+  "Spider-Man: Far From Home",
+  "Spider-Man: No Way Home"
+)
+
+spiderman <- movies |>
+  filter(title %in% spiderman_titles) |>
+  mutate(actor = case_when(
+    title %in% c("Spider-Man", "Spider-Man 2", "Spider-Man 3") ~ "Tobey Maguire",
+    title %in% c("The Amazing Spider-Man", "The Amazing Spider-Man 2") ~ "Andrew Garfield",
+    str_detect(title, ":") ~ "Tom Holland"
+  )) |>
+  arrange(releaseDateTheaters)
+
+spiderman |>
+  mutate(film_order = row_number()) |>
+  pivot_longer(
+    cols = c(tomatoMeter, audienceScore),
+    names_to = "score_type",
+    values_to = "score"
+  ) |>
+  mutate(score_type = recode(
+    score_type,
+    tomatoMeter = "Tomatometer",
+    audienceScore = "Audience"
+  )) |>
+  ggplot(aes(x = film_order, y = score, color = score_type, group = score_type)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  scale_x_continuous(breaks = seq_len(nrow(spiderman)), labels = spiderman$title) +
+  labs(
+    title = "Audience Scores Often Trail Critics Across Spider-Man Films",
+    subtitle = "Tomatometer and audience score by release order",
+    x = "Film",
+    y = "Score",
+    color = "Score"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
